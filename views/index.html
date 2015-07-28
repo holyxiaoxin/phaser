@@ -4,8 +4,12 @@
     <meta charset="UTF-8" />
     <title>Phaser - Making your first game, part 9</title>
     <script type="text/javascript" src="js/phaser.min.js"></script>
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="js/underscore-min.js"></script>
     <script type="text/javascript" src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
     <script type="text/javascript" src="http://code.jquery.com/jquery-1.11.1.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
     <style type="text/css">
         body {
             margin: 0;
@@ -14,9 +18,47 @@
 </head>
 <body>
 
+<div id="welcome-screen" class="container">
+    <div class="form-group">
+        <label for="my-name">Name</label>
+        <input type="text" class="form-control" id="my-name" placeholder="Pick a name">
+    </div>
+    <button class="btn btn-primary" id="my-name-submit">Submit</button>
+</div>
+
+<div id="canvas"></div>
+
 <script type="text/javascript">
     var socket = io();
-    var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+
+    var game;
+
+    var currentPlayer;
+    var players = {};
+    var platforms;
+    var cursors;
+
+    var stars;
+    var score = 0;
+    var scoreText;
+
+    var UPDATE_TIME_FAST = 20;
+
+    // Keeps track of timing
+    var lastGameUpdateTimeFast = 0;
+
+    $("#my-name-submit").click(function(){
+        currentPlayer = $("#my-name").val();
+        $("#welcome-screen").hide();
+        game = new Phaser.Game(800, 600, Phaser.AUTO, 'canvas', { preload: preload, create: create, update: update });
+
+    });
+
+    $(document).keypress(function(e) {
+        if($("#my-name").is(":focus") && e.which == 13) {
+            $('#my-name-submit').trigger('click');
+        }
+    });
 
     function preload() {
 
@@ -26,15 +68,6 @@
         game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
 
     }
-
-    var player;
-    var newPlayer;
-    var platforms;
-    var cursors;
-
-    var stars;
-    var score = 0;
-    var scoreText;
 
     function create() {
 
@@ -67,19 +100,65 @@
         ledge.body.immovable = true;
 
         // The player and its settings
-        player = game.add.sprite(32, game.world.height - 150, 'dude');
+
+        players[currentPlayer] = game.add.sprite(32, game.world.height - 150, 'dude');
+        players[currentPlayer].name = currentPlayer;
 
         //  We need to enable physics on the player
-        game.physics.arcade.enable(player);
+        game.physics.arcade.enable(players[currentPlayer]);
+
 
         //  Player physics properties. Give the little guy a slight bounce.
-        player.body.bounce.y = 0.2;
-        player.body.gravity.y = 300;
-        player.body.collideWorldBounds = true;
+        players[currentPlayer].body.bounce.y = 0.2;
+        players[currentPlayer].body.gravity.y = 300;
+        players[currentPlayer].body.collideWorldBounds = true;
 
         //  Our two animations, walking left and right.
-        player.animations.add('left', [0, 1, 2, 3], 10, true);
-        player.animations.add('right', [5, 6, 7, 8], 10, true);
+        players[currentPlayer].animations.add('left', [0, 1, 2, 3], 10, true);
+        players[currentPlayer].animations.add('right', [5, 6, 7, 8], 10, true);
+
+        // Listens for a new player
+        socket.on('new player', function(playerName){
+            if(playerName !== currentPlayer){
+                console.log(playerName+ ' has joined.');
+                players[playerName] = game.add.sprite(100, game.world.height - 150, 'dude');
+                game.physics.arcade.enable(players[playerName]);
+                players[playerName].body.bounce.y = 0.2;
+                players[playerName].body.gravity.y = 300;
+                players[playerName].body.collideWorldBounds = true;
+                players[playerName].animations.add('left', [0, 1, 2, 3], 10, true);
+                players[playerName].animations.add('right', [5, 6, 7, 8], 10, true);
+                players[playerName].frame = 4;
+            }
+        });
+
+        socket.on('player action', function(object){
+            if(object.name !== currentPlayer){
+//                players[object.name].position.x = object.x;
+//                players[object.name].position.y = object.y;
+                players[object.name].position.x = object.x;
+                players[object.name].position.y = object.y;
+                switch(object.action){
+                    case "cursorLeft" :{
+                        players[object.name].animations.play('left');
+                        break;
+                    }
+                    case "cursorRight":{
+                        players[object.name].animations.play('right');
+                        break;
+                    }
+                    case "cursorStill":{
+                        players[object.name].animations.stop();
+                        players[object.name].frame = 4;
+                        break;
+                    }
+//                    case "cursorUp":{
+//                        players[object.name].body.velocity.y = -350;
+//                        break;
+//                    }
+                }
+            }
+        });
 
         //  Finally some stars to collect
         stars = game.add.group();
@@ -107,70 +186,85 @@
         cursors = game.input.keyboard.createCursorKeys();
 
         // Emiting to other sockets about create()
-        socket.emit('chat message', 'example_name');
+        socket.emit('new player', currentPlayer);
 
+//        game.physics.arcade.moveToXY(players[currentPlayer], 300, 488, 200);
     }
 
     function update() {
 
         //  Collide the player and the stars with the platforms
-        game.physics.arcade.collide(player, platforms);
+        _.each(players, function(v,k){
+            game.physics.arcade.collide(players[k], platforms);
+        });
         game.physics.arcade.collide(stars, platforms);
 
         //  Checks to see if the player overlaps with any of the stars, if he does call the collectStar function
-        game.physics.arcade.overlap(player, stars, collectStar, null, this);
+        game.physics.arcade.overlap(players[currentPlayer], stars, collectStar, null, this);
 
         //  Reset the players velocity (movement)
-        player.body.velocity.x = 0;
+        players[currentPlayer].body.velocity.x = 0;
 
         if (cursors.left.isDown)
         {
             //  Move to the left
-            player.body.velocity.x = -150;
-
-            player.animations.play('left');
+            players[currentPlayer].body.velocity.x = -150;
+            players[currentPlayer].animations.play('left');
+            if(game.time.now - lastGameUpdateTimeFast > UPDATE_TIME_FAST){
+                object = { name: currentPlayer, x: players[currentPlayer].position.x,
+                    y: players[currentPlayer].position.y, action: 'cursorLeft' };
+                socket.emit('player action', object);
+                lastGameUpdateTimeFast = game.time.now
+            }
         }
         else if (cursors.right.isDown)
         {
             //  Move to the right
-            player.body.velocity.x = 150;
-
-            player.animations.play('right');
+            players[currentPlayer].body.velocity.x = 150;
+            players[currentPlayer].animations.play('right');
+            if(game.time.now - lastGameUpdateTimeFast > UPDATE_TIME_FAST){
+                object = { name: currentPlayer, x: players[currentPlayer].position.x,
+                    y: players[currentPlayer].position.y, action: 'cursorRight' };
+                socket.emit('player action', object);
+                lastGameUpdateTimeFast = game.time.now
+            }
         }
         else
         {
             //  Stand still
-            player.animations.stop();
-
-            player.frame = 4;
+            players[currentPlayer].animations.stop();
+            players[currentPlayer].frame = 4;
+            if(game.time.now - lastGameUpdateTimeFast > UPDATE_TIME_FAST){
+                object = { name: currentPlayer, x: players[currentPlayer].position.x,
+                    y: players[currentPlayer].position.y, action: 'cursorStill' };
+                socket.emit('player action', object);
+                lastGameUpdateTimeFast = game.time.now
+            }
         }
 
         //  Allow the player to jump if they are touching the ground.
-        if (cursors.up.isDown && player.body.touching.down)
+        if (cursors.up.isDown && players[currentPlayer].body.touching.down)
         {
-            player.body.velocity.y = -350;
+            players[currentPlayer].body.velocity.y = -350;
+            if(game.time.now - lastGameUpdateTimeFast > UPDATE_TIME_FAST){
+                object = { name: currentPlayer, x: players[currentPlayer].position.x,
+                    y: players[currentPlayer].position.y, action: 'cursorUp' };
+                socket.emit('player action', object);
+                lastGameUpdateTimeFast = game.time.now
+            }
         }
 
-        socket.on('chat message', function(msg){
-            console.log(msg+ ' has joined.')
-            // A new player has joined the room
-            newPlayer = game.add.sprite(64, game.world.height - 150, 'dude');
-            game.physics.arcade.enable(newPlayer);
 
-            newPlayer.body.bounce.y = 0.2;
-            newPlayer.body.gravity.y = 300;
-            newPlayer.body.collideWorldBounds = true;
 
-            newPlayer.animations.add('left', [0, 1, 2, 3], 10, true);
-            newPlayer.animations.add('right', [5, 6, 7, 8], 10, true);
-
-            game.physics.arcade.collide(newPlayer, platforms);
-        });
-
+        // Emiting to other sockets about my current position
+        if(game.time.now - lastGameUpdateTimeFast > 60){
+            var position = { name: currentPlayer, x: players[currentPlayer].position.x, y: players[currentPlayer].position.y};
+            socket.emit('player position', position);
+            lastGameUpdateTimeFast = game.time.now
+        }
     }
 
     function collectStar (player, star) {
-
         // Removes the star from the screen
         star.kill();
 

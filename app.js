@@ -9,8 +9,14 @@ app.get('/', function(req, res){
 });
 
 io.on('connection', function(socket){
-    socket.on('chat message', function(msg){
-        io.emit('chat message', msg);
+    socket.on('new player', function(newPlayer){
+        io.emit('new player', newPlayer);
+    });
+    socket.on('player position', function(object){
+        io.emit('player position', object);
+    });
+    socket.on('player action', function(object){
+        io.emit('player action', object);
     });
 });
 
