@@ -42,7 +42,7 @@
     var score = 0;
     var scoreText;
 
-    var UPDATE_TIME_FAST = 20;
+    var CURSOR_ACTION_UPDATE_TIME = 100;
 
     // Keeps track of timing
     var lastGameUpdateTimeFast = 0;
@@ -210,7 +210,7 @@
             //  Move to the left
             players[currentPlayer].body.velocity.x = -150;
             players[currentPlayer].animations.play('left');
-            if(game.time.now - lastGameUpdateTimeFast > UPDATE_TIME_FAST){
+            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
                 object = { name: currentPlayer, x: players[currentPlayer].position.x,
                     y: players[currentPlayer].position.y, action: 'cursorLeft' };
                 socket.emit('player action', object);
@@ -222,7 +222,7 @@
             //  Move to the right
             players[currentPlayer].body.velocity.x = 150;
             players[currentPlayer].animations.play('right');
-            if(game.time.now - lastGameUpdateTimeFast > UPDATE_TIME_FAST){
+            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
                 object = { name: currentPlayer, x: players[currentPlayer].position.x,
                     y: players[currentPlayer].position.y, action: 'cursorRight' };
                 socket.emit('player action', object);
@@ -234,7 +234,7 @@
             //  Stand still
             players[currentPlayer].animations.stop();
             players[currentPlayer].frame = 4;
-            if(game.time.now - lastGameUpdateTimeFast > UPDATE_TIME_FAST){
+            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
                 object = { name: currentPlayer, x: players[currentPlayer].position.x,
                     y: players[currentPlayer].position.y, action: 'cursorStill' };
                 socket.emit('player action', object);
@@ -246,7 +246,7 @@
         if (cursors.up.isDown && players[currentPlayer].body.touching.down)
         {
             players[currentPlayer].body.velocity.y = -350;
-            if(game.time.now - lastGameUpdateTimeFast > UPDATE_TIME_FAST){
+            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
                 object = { name: currentPlayer, x: players[currentPlayer].position.x,
                     y: players[currentPlayer].position.y, action: 'cursorUp' };
                 socket.emit('player action', object);
