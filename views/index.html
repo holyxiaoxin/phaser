@@ -42,7 +42,7 @@
     var score = 0;
     var scoreText;
 
-    var CURSOR_ACTION_UPDATE_TIME = 40;
+    var CURSOR_ACTION_UPDATE_TIME = 10;
 
     // Keeps track of timing
     var lastGameUpdateTimeFast = 0;
@@ -122,7 +122,7 @@
             if(newPlayer !== currentPlayer){
                 console.log(newPlayer+ ' has joined.');
                 players[newPlayer] = {};
-                players[newPlayer].sprite = game.add.sprite(100, game.world.height - 150, 'dude');
+                players[newPlayer].sprite = game.add.sprite(32, game.world.height - 150, 'dude');
                 game.physics.arcade.enable(players[newPlayer].sprite);
                 players[newPlayer].sprite.body.bounce.y = 0.2;
                 players[newPlayer].sprite.body.gravity.y = 300;
@@ -135,35 +135,26 @@
 
         socket.on('player action', function(object){
             if(object.name !== currentPlayer){
-//                players[object.name].sprite.position.x = object.x;
-//                players[object.name].sprite.position.y = object.y;
-//                console.log("players: ", players)
-//                console.log("object.name: ", object.name)
-//                console.log("player: ", players[object.name])
                 players[object.name].positionX = object.x;
                 players[object.name].positionY = object.y;
 
                 switch(object.action){
                     case "cursorLeft" :{
                         players[object.name].cursor = 'left';
-//                        players[object.name].sprite.animations.play('left');
                         break;
                     }
                     case "cursorRight":{
                         players[object.name].cursor = 'right';
-//                        players[object.name].sprite.animations.play('right');
                         break;
                     }
                     case "cursorStill":{
                         players[object.name].cursor = 'still';
-//                        players[object.name].sprite.animations.stop();
-//                        players[object.name].sprite.frame = 4;
                         break;
                     }
-//                    case "cursorUp":{
-//                        players[object.name].sprite.body.velocity.y = -350;
-//                        break;
-//                    }
+                    case "cursorUp":{
+                        players[object.name].cursor = 'up';
+                        break;
+                    }
                 }
             }
         });
@@ -205,24 +196,33 @@
         _.each(players, function(v,k){
             game.physics.arcade.collide(players[k].sprite, platforms);
             if(k !== currentPlayer){
-                players[k].sprite.body.x = players[k].positionX;
-                players[k].sprite.body.y = players[k].positionY;
-                console.log(k, players[k].positionX, players[k].positionY);
-//                switch(players[k].cursor){
-//                    case "left":{
-//                        players[k].sprite.animations.play('left');
-//                        break;
-//                    }
-//                    case "right":{
-//                        players[k].sprite.animations.play('left');
-//                        break;
-//                    }
-//                    case "still":{
-//                        players[k].sprite.animations.stop();
-//                        players[k].sprite.frame = 4;
-//                        break;
-//                    }
-//                }
+//                players[k].sprite.body.x = players[k].positionX;
+//                players[k].sprite.body.y = players[k].positionY;
+                //  Reset the player velocity (movement)
+                players[k].sprite.body.velocity.x = 0;
+                switch(players[k].cursor){
+                    case "left":{
+                        players[k].sprite.body.velocity.x = -150;
+                        players[k].sprite.animations.play('left');
+                        break;
+                    }
+                    case "right":{
+                        players[k].sprite.body.velocity.x = 150;
+                        players[k].sprite.animations.play('right');
+                        break;
+                    }
+                    case "still":{
+                        players[k].sprite.animations.stop();
+                        players[k].sprite.frame = 4;
+                        break;
+                    }
+                    case "up":{
+                        if(players[k].sprite.body.touching.down){
+                            players[k].sprite.body.velocity.y = -350;
+                        }
+                        break;
+                    }
+                }
             }
         });
         game.physics.arcade.collide(stars, platforms);
@@ -238,48 +238,59 @@
             //  Move to the left
             players[currentPlayer].sprite.body.velocity.x = -150;
             players[currentPlayer].sprite.animations.play('left');
-            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
-                object = { name: currentPlayer, x: players[currentPlayer].sprite.position.x,
-                    y: players[currentPlayer].sprite.position.y, action: 'cursorLeft' };
+//            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
+            if(players[currentPlayer].sprite.body.touching.down) {
+                object = {
+                    name: currentPlayer, x: players[currentPlayer].sprite.position.x,
+                    y: players[currentPlayer].sprite.position.y, action: 'cursorLeft'
+                };
                 socket.emit('player action', object);
                 lastGameUpdateTimeFast = game.time.now
             }
+//            }
         }
         else if (cursors.right.isDown)
         {
             //  Move to the right
             players[currentPlayer].sprite.body.velocity.x = 150;
             players[currentPlayer].sprite.animations.play('right');
-            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
+//            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
+            if(players[currentPlayer].sprite.body.touching.down){
                 object = { name: currentPlayer, x: players[currentPlayer].sprite.position.x,
                     y: players[currentPlayer].sprite.position.y, action: 'cursorRight' };
                 socket.emit('player action', object);
                 lastGameUpdateTimeFast = game.time.now
             }
+//            }
         }
         else
         {
             //  Stand still
             players[currentPlayer].sprite.animations.stop();
             players[currentPlayer].sprite.frame = 4;
-            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
-                object = { name: currentPlayer, x: players[currentPlayer].sprite.position.x,
-                    y: players[currentPlayer].sprite.position.y, action: 'cursorStill' };
+//            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
+            if(players[currentPlayer].sprite.body.touching.down) {
+
+                object = {
+                    name: currentPlayer, x: players[currentPlayer].sprite.position.x,
+                    y: players[currentPlayer].sprite.position.y, action: 'cursorStill'
+                };
                 socket.emit('player action', object);
                 lastGameUpdateTimeFast = game.time.now
             }
+//            }
         }
 
         //  Allow the player to jump if they are touching the ground.
         if (cursors.up.isDown && players[currentPlayer].sprite.body.touching.down)
         {
             players[currentPlayer].sprite.body.velocity.y = -350;
-            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
-                object = { name: currentPlayer, x: players[currentPlayer].sprite.position.x,
-                    y: players[currentPlayer].sprite.position.y, action: 'cursorUp' };
-                socket.emit('player action', object);
-                lastGameUpdateTimeFast = game.time.now
-            }
+//            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
+            object = { name: currentPlayer, x: players[currentPlayer].sprite.position.x,
+                y: players[currentPlayer].sprite.position.y, action: 'cursorUp' };
+            socket.emit('player action', object);
+            lastGameUpdateTimeFast = game.time.now
+//            }
         }
 
 
