@@ -118,6 +118,24 @@
         players[currentPlayer].sprite.animations.add('left', [0, 1, 2, 3], 10, true);
         players[currentPlayer].sprite.animations.add('right', [5, 6, 7, 8], 10, true);
 
+        // Loads existing players on joining game
+        socket.on('new game', function(players){
+            _.each(players, function (v, k) {
+                if (k !== currentPlayer) {
+                    players[k] = {};
+                    players[k].sprite = game.add.sprite(32, game.world.height - 150, 'dude');
+                    game.physics.arcade.enable(players[k].sprite);
+                    players[k].sprite.body.bounce.y = 0.2;
+                    players[k].sprite.body.gravity.y = 300;
+                    players[k].sprite.body.collideWorldBounds = true;
+                    players[k].sprite.animations.add('left', [0, 1, 2, 3], 10, true);
+                    players[k].sprite.animations.add('right', [5, 6, 7, 8], 10, true);
+                    players[k].sprite.frame = 4;
+                    game.physics.arcade.collide(players[k].sprite, platforms);
+                }
+            });
+        });
+
         // Listens for a new player
         socket.on('new player', function(newPlayer){
             if(newPlayer !== currentPlayer){
@@ -134,6 +152,7 @@
             }
         });
 
+        // This is triggered during each frame of other players
         socket.on('player action', function(object){
             if(object.name !== currentPlayer){
                 players[object.name].positionX = object.x;
@@ -182,7 +201,6 @@
             if (k !== currentPlayer) {
                 // Sync state position after a while
                 if (game.time.now - lastPositionUpdateTime > UPDATE_TIME_SLOW) {
-                    console.log(players[k].positionX, players[k].positionY);
                     players[k].sprite.body.x = players[k].positionX;
                     players[k].sprite.body.y = players[k].positionY;
                     lastPositionUpdateTime = game.time.now
@@ -259,13 +277,6 @@
             socket.emit('player action', object);
             lastCursorUpdateTime = game.time.now
         }
-
-//        // Emiting to other sockets about my current position
-//        if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
-//            var position = { name: currentPlayer, x: players[currentPlayer].sprite.position.x, y: players[currentPlayer].sprite.position.y};
-//            socket.emit('player position', position);
-//            lastGameUpdateTimeFast = game.time.now
-//        }
     }
 
     function collectStar (player, star) {
