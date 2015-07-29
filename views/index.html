@@ -138,24 +138,28 @@
                 players[object.name].positionX = object.x;
                 players[object.name].positionY = object.y;
 
-                switch(object.action){
-                    case "cursorLeft" :{
-                        players[object.name].cursor = 'left';
-                        break;
-                    }
-                    case "cursorRight":{
-                        players[object.name].cursor = 'right';
-                        break;
-                    }
-                    case "cursorStill":{
-                        players[object.name].cursor = 'still';
-                        break;
-                    }
-                    case "cursorUp":{
-                        players[object.name].cursor = 'up';
-                        break;
-                    }
-                }
+//                switch(object.action){
+//                    case "cursorLeft" :{
+//                        players[object.name].cursor = 'left';
+//                        break;
+//                    }
+//                    case "cursorRight":{
+//                        players[object.name].cursor = 'right';
+//                        break;
+//                    }
+//                    case "cursorStill":{
+//                        players[object.name].cursor = 'still';
+//                        break;
+//                    }
+//                    case "cursorUp":{
+//                        players[object.name].cursor = 'up';
+//                        break;
+//                    }
+//                }
+//                // Sets left, right, up, still
+                players[object.name].cursor = object.cursor;
+//                // Sets jumping
+                players[object.name].cursorUp = object.cursorUp;
             }
         });
 
@@ -186,41 +190,41 @@
 
         // Emiting to other sockets about create()
         socket.emit('new player', currentPlayer);
-
-//        game.physics.arcade.moveToXY(players[currentPlayer].sprite, 300, 488, 200);
     }
 
     function update() {
 
         //  Collide the player and the stars with the platforms
-        _.each(players, function(v,k){
+        _.each(players, function (v, k) {
             game.physics.arcade.collide(players[k].sprite, platforms);
-            if(k !== currentPlayer){
+            if (k !== currentPlayer) {
 //                players[k].sprite.body.x = players[k].positionX;
 //                players[k].sprite.body.y = players[k].positionY;
                 //  Reset the player velocity (movement)
                 players[k].sprite.body.velocity.x = 0;
-                switch(players[k].cursor){
-                    case "left":{
+                switch (players[k].cursor) {
+                    case "left":
+                    {
                         players[k].sprite.body.velocity.x = -150;
                         players[k].sprite.animations.play('left');
                         break;
                     }
-                    case "right":{
+                    case "right":
+                    {
                         players[k].sprite.body.velocity.x = 150;
                         players[k].sprite.animations.play('right');
                         break;
                     }
-                    case "still":{
+                    case "still":
+                    {
                         players[k].sprite.animations.stop();
                         players[k].sprite.frame = 4;
                         break;
                     }
-                    case "up":{
-                        if(players[k].sprite.body.touching.down){
-                            players[k].sprite.body.velocity.y = -350;
-                        }
-                        break;
+                }
+                if(players[k].cursorUp){
+                    if(players[k].sprite.body.touching.down){
+                        players[k].sprite.body.velocity.y = -350;
                     }
                 }
             }
@@ -233,66 +237,70 @@
         //  Reset the players velocity (movement)
         players[currentPlayer].sprite.body.velocity.x = 0;
 
-        if (cursors.left.isDown)
-        {
+        if (cursors.left.isDown) {
             //  Move to the left
             players[currentPlayer].sprite.body.velocity.x = -150;
             players[currentPlayer].sprite.animations.play('left');
-//            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
-            if(players[currentPlayer].sprite.body.touching.down) {
-                object = {
-                    name: currentPlayer, x: players[currentPlayer].sprite.position.x,
-                    y: players[currentPlayer].sprite.position.y, action: 'cursorLeft'
-                };
-                socket.emit('player action', object);
-                lastGameUpdateTimeFast = game.time.now
+            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
+                if (players[currentPlayer].sprite.body.touching.down) {
+                    object = {
+                        name: currentPlayer, x: players[currentPlayer].sprite.position.x,
+                        y: players[currentPlayer].sprite.position.y, cursor: 'left'
+                    };
+                    socket.emit('player action', object);
+                    lastGameUpdateTimeFast = game.time.now
+                }
             }
-//            }
-        }
-        else if (cursors.right.isDown)
-        {
+        } else if (cursors.right.isDown) {
             //  Move to the right
             players[currentPlayer].sprite.body.velocity.x = 150;
             players[currentPlayer].sprite.animations.play('right');
-//            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
-            if(players[currentPlayer].sprite.body.touching.down){
-                object = { name: currentPlayer, x: players[currentPlayer].sprite.position.x,
-                    y: players[currentPlayer].sprite.position.y, action: 'cursorRight' };
+            if (game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME) {
+                if (players[currentPlayer].sprite.body.touching.down) {
+                    object = {
+                        name: currentPlayer, x: players[currentPlayer].sprite.position.x,
+                        y: players[currentPlayer].sprite.position.y, cursor: 'right'
+                    };
+                }
                 socket.emit('player action', object);
                 lastGameUpdateTimeFast = game.time.now
             }
-//            }
-        }
-        else
-        {
+        } else {
             //  Stand still
             players[currentPlayer].sprite.animations.stop();
             players[currentPlayer].sprite.frame = 4;
-//            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
-            if(players[currentPlayer].sprite.body.touching.down) {
+            if (game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME) {
+                if (players[currentPlayer].sprite.body.touching.down) {
+                    object = {
+                        name: currentPlayer, x: players[currentPlayer].sprite.position.x,
+                        y: players[currentPlayer].sprite.position.y, cursor: 'still'
+                    };
+                    socket.emit('player action', object);
+                    lastGameUpdateTimeFast = game.time.now
+                }
+            }
+        }
 
+        //  Allow the player to jump if they are touching the ground.
+        if (cursors.up.isDown) {
+            if (players[currentPlayer].sprite.body.touching.down) {
+                players[currentPlayer].sprite.body.velocity.y = -350;
+            }
+            if (game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME) {
                 object = {
                     name: currentPlayer, x: players[currentPlayer].sprite.position.x,
-                    y: players[currentPlayer].sprite.position.y, action: 'cursorStill'
+                    y: players[currentPlayer].sprite.position.y, cursorUp: true
                 };
                 socket.emit('player action', object);
                 lastGameUpdateTimeFast = game.time.now
             }
-//            }
-        }
-
-        //  Allow the player to jump if they are touching the ground.
-        if (cursors.up.isDown && players[currentPlayer].sprite.body.touching.down)
-        {
-            players[currentPlayer].sprite.body.velocity.y = -350;
-//            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
-            object = { name: currentPlayer, x: players[currentPlayer].sprite.position.x,
-                y: players[currentPlayer].sprite.position.y, action: 'cursorUp' };
+        } else {
+            object = {
+                name: currentPlayer, x: players[currentPlayer].sprite.position.x,
+                y: players[currentPlayer].sprite.position.y, cursorUp: false
+            };
             socket.emit('player action', object);
-            lastGameUpdateTimeFast = game.time.now
-//            }
         }
-
 
 
 //        // Emiting to other sockets about my current position
