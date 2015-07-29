@@ -42,10 +42,11 @@
     var score = 0;
     var scoreText;
 
-    var CURSOR_ACTION_UPDATE_TIME = 10;
-
+    var UPDATE_TIME_FAST = 16.6666667;
+    var UPDATE_TIME_SLOW = 1000;
     // Keeps track of timing
-    var lastGameUpdateTimeFast = 0;
+    var lastCursorUpdateTime = 0;
+    var lastPositionUpdateTime = 0;
 
     $("#my-name-submit").click(function(){
         currentPlayer = $("#my-name").val();
@@ -137,28 +138,9 @@
             if(object.name !== currentPlayer){
                 players[object.name].positionX = object.x;
                 players[object.name].positionY = object.y;
-
-//                switch(object.action){
-//                    case "cursorLeft" :{
-//                        players[object.name].cursor = 'left';
-//                        break;
-//                    }
-//                    case "cursorRight":{
-//                        players[object.name].cursor = 'right';
-//                        break;
-//                    }
-//                    case "cursorStill":{
-//                        players[object.name].cursor = 'still';
-//                        break;
-//                    }
-//                    case "cursorUp":{
-//                        players[object.name].cursor = 'up';
-//                        break;
-//                    }
-//                }
-//                // Sets left, right, up, still
+                // Sets left, right, up, still
                 players[object.name].cursor = object.cursor;
-//                // Sets jumping
+                // Sets jumping
                 players[object.name].cursorUp = object.cursorUp;
             }
         });
@@ -198,8 +180,13 @@
         _.each(players, function (v, k) {
             game.physics.arcade.collide(players[k].sprite, platforms);
             if (k !== currentPlayer) {
-//                players[k].sprite.body.x = players[k].positionX;
-//                players[k].sprite.body.y = players[k].positionY;
+                // Sync state position after a while
+                if (game.time.now - lastPositionUpdateTime > UPDATE_TIME_SLOW) {
+                    console.log(players[k].positionX, players[k].positionY);
+                    players[k].sprite.body.x = players[k].positionX;
+                    players[k].sprite.body.y = players[k].positionY;
+                    lastPositionUpdateTime = game.time.now
+                }
                 //  Reset the player velocity (movement)
                 players[k].sprite.body.velocity.x = 0;
                 switch (players[k].cursor) {
@@ -237,48 +224,23 @@
         //  Reset the players velocity (movement)
         players[currentPlayer].sprite.body.velocity.x = 0;
 
+        object={ name: currentPlayer };
+
         if (cursors.left.isDown) {
             //  Move to the left
             players[currentPlayer].sprite.body.velocity.x = -150;
             players[currentPlayer].sprite.animations.play('left');
-            if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
-                if (players[currentPlayer].sprite.body.touching.down) {
-                    object = {
-                        name: currentPlayer, x: players[currentPlayer].sprite.position.x,
-                        y: players[currentPlayer].sprite.position.y, cursor: 'left'
-                    };
-                    socket.emit('player action', object);
-                    lastGameUpdateTimeFast = game.time.now
-                }
-            }
+            object.cursor = 'left';
         } else if (cursors.right.isDown) {
             //  Move to the right
             players[currentPlayer].sprite.body.velocity.x = 150;
             players[currentPlayer].sprite.animations.play('right');
-            if (game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME) {
-                if (players[currentPlayer].sprite.body.touching.down) {
-                    object = {
-                        name: currentPlayer, x: players[currentPlayer].sprite.position.x,
-                        y: players[currentPlayer].sprite.position.y, cursor: 'right'
-                    };
-                }
-                socket.emit('player action', object);
-                lastGameUpdateTimeFast = game.time.now
-            }
+            object.cursor = 'right';
         } else {
             //  Stand still
             players[currentPlayer].sprite.animations.stop();
             players[currentPlayer].sprite.frame = 4;
-            if (game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME) {
-                if (players[currentPlayer].sprite.body.touching.down) {
-                    object = {
-                        name: currentPlayer, x: players[currentPlayer].sprite.position.x,
-                        y: players[currentPlayer].sprite.position.y, cursor: 'still'
-                    };
-                    socket.emit('player action', object);
-                    lastGameUpdateTimeFast = game.time.now
-                }
-            }
+            object.cursor = 'still';
         }
 
         //  Allow the player to jump if they are touching the ground.
@@ -286,22 +248,17 @@
             if (players[currentPlayer].sprite.body.touching.down) {
                 players[currentPlayer].sprite.body.velocity.y = -350;
             }
-            if (game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME) {
-                object = {
-                    name: currentPlayer, x: players[currentPlayer].sprite.position.x,
-                    y: players[currentPlayer].sprite.position.y, cursorUp: true
-                };
-                socket.emit('player action', object);
-                lastGameUpdateTimeFast = game.time.now
-            }
+            object.cursorUp = true;
         } else {
-            object = {
-                name: currentPlayer, x: players[currentPlayer].sprite.position.x,
-                y: players[currentPlayer].sprite.position.y, cursorUp: false
-            };
-            socket.emit('player action', object);
+            object.cursorUp = false;
         }
 
+        if (game.time.now - lastCursorUpdateTime > UPDATE_TIME_FAST) {
+            object.x = players[currentPlayer].sprite.position.x;
+            object.y = players[currentPlayer].sprite.position.y;
+            socket.emit('player action', object);
+            lastCursorUpdateTime = game.time.now
+        }
 
 //        // Emiting to other sockets about my current position
 //        if(game.time.now - lastGameUpdateTimeFast > CURSOR_ACTION_UPDATE_TIME){
